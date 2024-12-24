@@ -1,6 +1,7 @@
 package com.oauth2.custom_grant_type;
 
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
@@ -28,6 +29,7 @@ import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
+import java.security.Principal;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
@@ -75,6 +77,7 @@ public class CustomGrantAuthenticationProvider implements AuthenticationProvider
         // Initialize the OAuth2Authorization and set token configurations
         OAuth2Authorization.Builder authorizationBuilder = OAuth2Authorization.withRegisteredClient(registeredClient)
                 .principalName(clientPrincipal.getName())
+                .attribute(Principal.class.getName(), new UsernamePasswordAuthenticationToken(customCodeGrantAuthentication.getName(), null, Collections.emptyList()))
                 .authorizationGrantType(customCodeGrantAuthentication.getGrantType());
         authorizationBuilder.accessToken(accessToken);
         authorizationBuilder.refreshToken(refreshToken);
