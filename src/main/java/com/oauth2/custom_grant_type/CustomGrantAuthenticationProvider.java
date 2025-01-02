@@ -4,12 +4,17 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.OAuth2Token;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
@@ -30,7 +35,10 @@ import javax.naming.directory.InitialDirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -69,15 +77,23 @@ public class CustomGrantAuthenticationProvider implements AuthenticationProvider
             throw new RuntimeException(e);
         }
 
+        SimpleGrantedAuthority roleA = new SimpleGrantedAuthority("ROLE_A");
+        SimpleGrantedAuthority roleB = new SimpleGrantedAuthority("ROLE_B");
+        List<SimpleGrantedAuthority> updatedAuthorities = new ArrayList<>();
+        updatedAuthorities.add(roleA);
+        updatedAuthorities.add(roleB);
+
+        UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(customCodeGrantAuthentication.getName(), null, updatedAuthorities);
+
         // Generate the access token
-        OAuth2AccessToken accessToken = generateAccessToken(customCodeGrantAuthentication, clientPrincipal, registeredClient);
+        OAuth2AccessToken accessToken = generateAccessToken(customCodeGrantAuthentication, clientPrincipal, registeredClient, (CustomGrantAuthenticationToken) authentication, usernamePasswordAuthenticationToken);
         // Generate the refresh token
         OAuth2RefreshToken refreshToken = generateRefreshToken(customCodeGrantAuthentication, clientPrincipal, registeredClient);
 
         // Initialize the OAuth2Authorization and set token configurations
         OAuth2Authorization.Builder authorizationBuilder = OAuth2Authorization.withRegisteredClient(registeredClient)
                 .principalName(clientPrincipal.getName())
-                .attribute(Principal.class.getName(), new UsernamePasswordAuthenticationToken(customCodeGrantAuthentication.getName(), null, Collections.emptyList()))
+                .attribute(Principal.class.getName(), usernamePasswordAuthenticationToken)
                 .authorizationGrantType(customCodeGrantAuthentication.getGrantType());
         authorizationBuilder.accessToken(accessToken);
         authorizationBuilder.refreshToken(refreshToken);
@@ -116,10 +132,10 @@ public class CustomGrantAuthenticationProvider implements AuthenticationProvider
         return new InitialDirContext(ldapEnv);
     }
 
-    private OAuth2AccessToken generateAccessToken(CustomGrantAuthenticationToken customGrantAuthentication, OAuth2ClientAuthenticationToken clientPrincipal, RegisteredClient registeredClient) {
+    private OAuth2AccessToken generateAccessToken(CustomGrantAuthenticationToken customGrantAuthentication, OAuth2ClientAuthenticationToken clientPrincipal, RegisteredClient registeredClient, CustomGrantAuthenticationToken x, UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken) {
         OAuth2TokenContext tokenContext = DefaultOAuth2TokenContext.builder()
                 .registeredClient(registeredClient)
-                .principal(clientPrincipal)
+                .principal(usernamePasswordAuthenticationToken)
                 .authorizationServerContext(AuthorizationServerContextHolder.getContext())
                 .tokenType(OAuth2TokenType.ACCESS_TOKEN)
                 .authorizationGrantType(customGrantAuthentication.getGrantType())
